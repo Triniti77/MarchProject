@@ -1,0 +1,23 @@
+mutation addUser($firstName: String!, $lastName: String!, $address: String!, $email: String!, $phone: String!){
+    addUser(user:{
+        firstName: $firstName,
+        lastName: $lastName,
+        address: $address,
+        email: $email,
+        phone: $phone,
+        role: common
+    })
+        {
+            user {
+                id
+                firstName
+                lastName
+                address
+                email
+                phone
+                role
+                lastLogin
+                language
+            }
+        }
+}

@@ -1,0 +1,10 @@
+query CountriesGetActive {
+    countriesGetActive {
+        alpha3
+        currency
+        title
+        mainMessage
+        subMessage
+        __typename
+    }
+}

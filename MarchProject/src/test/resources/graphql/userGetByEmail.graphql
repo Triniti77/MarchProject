@@ -1,0 +1,19 @@
+query userGetByEmail($email: String!) {
+    userGetByEmail(user:{
+        email: $email
+
+    })
+    {
+        user{
+            id
+            firstName
+            lastName
+            address
+            email
+            phone
+            role
+            lastLogin
+            language
+        }
+    }
+}

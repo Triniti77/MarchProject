@@ -1,0 +1,12 @@
+query companyGetByUser($id: ID,$users: [UserIdentInput!]!){
+    companyGetByUser(company:{
+        id: $ID
+        users: $users
+    })
+    {
+        company{
+            id
+            companies
+        }
+    }
+}
