@@ -31,7 +31,7 @@ public class GraphQLQuery {
         queryPath = path;
     }
 
-    Response perform(String method, ObjectNode variables, boolean requireAuth) throws IOException {
+    public Response perform(String method, ObjectNode variables, boolean requireAuth) throws IOException {
         InputStream iStream = getGraphqlTestFileStream(method);
         String graphqlPayload = GraphqlTemplate.parseGraphql(iStream, variables);
         return prepareResponse(graphqlPayload, requireAuth);

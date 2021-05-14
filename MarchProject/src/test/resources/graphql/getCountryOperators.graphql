@@ -1,0 +1,19 @@
+query getCountryOperators($country: String) {
+    getCountryOperators(user:{
+        country: $country
+    })
+    {
+        users{
+            id
+            firstName
+            lastName
+            address
+            email
+            phone
+            role
+            lastLogin
+            language
+        }
+    }
+
+}

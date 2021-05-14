@@ -1,0 +1,16 @@
+mutation assignCompanyUser($id: ID!, $users: [UserIdentInput!]!){
+    assignCompanyUser(company:{
+        id: $id
+        users: $users
+    })
+    {
+        company {
+            id
+            users {
+                id
+            }
+        }
+    }
+}
+
+

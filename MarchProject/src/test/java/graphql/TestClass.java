@@ -1,7 +1,7 @@
 package graphql;
 
 import java.io.*;
-import java.util.Properties;
+import java.util.ArrayList;
 
 import aws.AWSCognitoSession;
 import aws.AWSSession;
@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import datasource.DataSource;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -19,22 +20,18 @@ import okhttp3.*;
 public class TestClass extends BaseTest{
 
     private AWSSession awsSession;
-    DataSourse dataSourse = new DataSourse();
+    DataSource dataSource = DataSource.getDataSource();
+    datasource.Properties props;
 
-    public TestClass() {
+
+    public TestClass() throws IOException {
     }
 
     @BeforeClass
-    public void init() {
-        Properties prop = new Properties();
-        try {
-            prop.load(TestClass.class.getClassLoader().getResourceAsStream("rollsoft.properties"));
-        } catch (IOException e) {
-            System.out.println("Cannot read properties");
-            System.exit(1);
-        }
-        awsSession = new AWSCognitoSession(prop.getProperty("admin_username"), prop.getProperty("admin_password"), prop.getProperty("admin_clientid"));
-        GraphQLQuery.setUri(prop.getProperty("graphql_url"));
+    public void init() throws IOException {
+        props = datasource.Properties.getProperties("rollsoft");
+        awsSession = new AWSCognitoSession(props.get("admin_username"), props.get("admin_password"), props.get("admin_clientid"));
+        GraphQLQuery.setUri(props.get("graphql_url"));
         GraphQLQuery.setSchemaPath("graphql");
     }
 
@@ -45,7 +42,6 @@ public class TestClass extends BaseTest{
     protected Response performGraphqlQueryNoauth(String filename, ObjectNode variables) throws IOException {
         return performGraphqlQuery(filename, variables, false);
     }
-
 
     @Test
     public void testCountriesGetActive() throws IOException {
@@ -72,7 +68,7 @@ public class TestClass extends BaseTest{
 //        variables.put("email", "rollsoft-qatest-" + faker.lorem().characters(10) + "@mailinator.com");
 //        variables.put("phone", faker.phoneNumber().cellPhone());
 
-        ObjectNode variables = dataSourse.getFakeUserVariables();
+        ObjectNode variables = dataSource.getFakeUserVariables();
         Response response = performGraphqlQueryNoauth("addUser",variables);
 
         Assert.assertEquals(response.code(), 200, "Response Code Assertion");
@@ -87,11 +83,11 @@ public class TestClass extends BaseTest{
     }
 
     @Test
-    public void testUserGetByEmail() throws IOException{
+    public void testAdminUserGetByEmail() throws IOException{
         //65
         GraphQLQuery query = new GraphQLQuery(awsSession.getConnector());
 
-        ObjectNode variables = dataSourse.getRealAdminUserVariables();
+        ObjectNode variables = dataSource.getRealAdminUserVariables();
 //        performGraphqlQueryAuth("userGetByEmail", variables);
 //        Response response = performGraphqlQueryAuth("userGetByEmail", variables);
         Response response = query.perform("userGetByEmail", variables, true);
@@ -107,62 +103,121 @@ public class TestClass extends BaseTest{
     }
 
     @Test
-    public void testCompanyGetByEmail() throws IOException{
-        //60 получаем компанию по id пользователя
+    // еще нужно доделать
+    public void testOperatorUserGetByEmail() throws IOException{
+        //65
+        GraphQLQuery query = new GraphQLQuery(awsSession.getConnector());
+
+        ObjectNode user = dataSource.getRealOperatorUserVariables();
+//        performGraphqlQueryAuth("userGetByEmail", user);
+//        Response response = performGraphqlQueryAuth("userGetByEmail", user);
+        Response response = query.perform("userGetByEmail", user, true);
 
 
-
+//        Assert.assertEquals(response.code(), 200, "Response Code Assertion");
+        String jsonData = response.body().string();
+        JsonNode jsonNode = new ObjectMapper().readTree(jsonData);
+        var nodeGetUserByEmail = jsonNode.get("data").get("userGetByEmail");
+        Assert.assertNotEquals(nodeGetUserByEmail, null);
+        Assert.assertEquals(nodeGetUserByEmail.get("user").get("id").asText(), user.get("id").asText());
+        Assert.assertEquals(nodeGetUserByEmail.get("user").get("email").asText(), user.get("email").asText());
     }
 
+    @Test
+    public void testCompanyGetByUser() throws IOException{
+        //60 получаем компанию по id пользователя
+        GraphQLQuery query = new GraphQLQuery(awsSession.getConnector());
+        ObjectNode user = dataSource.getRealAdminUserVariables();
+        ObjectNode variables = new ObjectMapper().createObjectNode();
+        variables.putArray("users").addObject().put("id", user.get("id")); //
+
+        Response response = query.perform("companyGetByUser", variables, true);
+        Assert.assertEquals(response.code(), 200, "Response Code Assertion");
+        String jsonData = response.body().string();
+        JsonNode jsonNode = new ObjectMapper().readTree(jsonData);
+        var nodeGetUserByEmail = jsonNode.get("data").get("companyGetByUser");
+        Assert.assertNotEquals(nodeGetUserByEmail, null);
+        Assert.assertEquals(nodeGetUserByEmail.get("user").get("id").asText(), user.get("id").asText());
+        companyId = nodeGetUserByEmail.get("user").get("companies").get(0).get("id").asText();
+    }
+
+    String companyId;
+
+    @Test (dependsOnMethods = {"testCompanyGetByUser"})
+    public void testCompanyGetById() throws IOException{
+        //56
+        // Достать id компании, сохранить его в переменную
+        GraphQLQuery query = new GraphQLQuery(awsSession.getConnector());
+       // ObjectNode user = dataSource.getRealAdminUserVariables();
+        ObjectNode company = new ObjectMapper().createObjectNode();
+        company.put("id", companyId);
+        // variables.putArray("users").addObject().put("id", user.get("id"));
+        Response response = query.perform("companyGetById", company, true);
+
+        Assert.assertEquals(response.code(), 200, "Response Code Assertion");
+        String jsonData = response.body().string();
+        JsonNode jsonNode = new ObjectMapper().readTree(jsonData);
+        var nodeGetUserByEmail = jsonNode.get("data").get("companyGetById");
+        Assert.assertNotEquals(nodeGetUserByEmail, null);
+        Assert.assertEquals(nodeGetUserByEmail.get("company").get("id").asText(), company.get("id").asText());
+        countryId = nodeGetUserByEmail.get("company").get("country").asText();
+        // с строчки 161 нужно достать country его id
+    }
+
+    String countryId;
 
 
+    @Test (dependsOnMethods = {"testCompanyGetByUser","testCompanyGetById"})
+    public void testGetCountryOperators() throws IOException{
+        //76
+        GraphQLQuery query = new GraphQLQuery(awsSession.getConnector());
+        ObjectNode country = new ObjectMapper().createObjectNode();
+        country.put("country", countryId);
+        Response response = query.perform("getCountryOperators", country, true);
 
+        Assert.assertEquals(response.code(), 200, "Response Code Assertion");
+        String jsonData = response.body().string();
+        JsonNode jsonNode = new ObjectMapper().readTree(jsonData);
+        var nodeGetCountryOperators = jsonNode.get("data").get("getCountryOperators");
+        JsonNode arrayUsers = nodeGetCountryOperators.get("users");
+        var userIdFound = false;
+        for (int i=0; i< arrayUsers.size(); i++){
+            var user = arrayUsers.get(i);
+            var userId = user.get("id").asText(); //
+            if (userId.equals("1085")){
+                userIdFound = true;
+                break;
+            }
+        }
 
+        Assert.assertTrue(userIdFound);
+    }
 
-
-
-// https://stackoverflow.com/questions/36840244/how-do-i-authenticate-against-an-aws-cognito-user-pool
-    // https://stackoverflow.com/questions/51162584/aws-cognito-sign-in-with-java-sdk-for-desktop-application
-
-
-
-//    @Test
-//    public void testGraphqlWithFile() throws IOException {
-//        // Read a graphql file
-//        File file = new File("src/test/resources" + queryPath);
-//
-//        // Create a variables to pass to the graphql query
-//        ObjectNode variables = new ObjectMapper().createObjectNode();
-//        variables.put("name", "Pikachu");
-//
-//        // Now parse the graphql file to a request payload string
-//        String graphqlPayload = GraphqlTemplate.parseGraphql(file, variables);
-//
-//        // Build and trigger the request
-//        Response response = prepareResponse(graphqlPayload);
-//
-//        Assert.assertEquals(response.code(), 200, "Response Code Assertion");
-//
-//        String jsonData = response.body().string();
-//        JsonNode jsonNode = new ObjectMapper().readTree(jsonData);
-//        Assert.assertEquals(jsonNode.get("data").get("pokemon").get("name").asText(), "Pikachu");
-//    }
-
-//    @Test
-//    public void testGraphqlWithNoVariables() throws IOException {
-//        // Read a graphql file
-//        File file = new File("src/test/resources/graphql/pokemon-with-no-variable.graphql");
-//
-//        // Now parse the graphql file to a request payload string
-//        String graphqlPayload = GraphqlTemplate.parseGraphql(file, null);
-//
-//        // Build and trigger the request
-//        Response response = prepareResponse(graphqlPayload);
-//
-//        Assert.assertEquals(response.code(), 200, "Response Code Assertion");
-//
-//        String jsonData = response.body().string();
-//        JsonNode jsonNode = new ObjectMapper().readTree(jsonData);
-//        Assert.assertEquals(jsonNode.get("data").get("pokemon").get("name").asText(), "Pikachu");
-//    }
+    @Test
+    public void testGetOperatorCountries() throws IOException{
+        //77
+        GraphQLQuery query = new GraphQLQuery(awsSession.getConnector());
+        ObjectNode user = dataSource.getRealOperatorUserVariables();
+        // {
+        //    id: ID
+        // }
+        ObjectNode variables = new ObjectMapper().createObjectNode(); // {}
+        variables.put("id", user.get("id").asText()); // { id: 453564 }
+        Response response = query.perform("getOperatorCountries", variables, true);
+        Assert.assertEquals(response.code(), 200, "Response Code Assertion");
+        String jsonData = response.body().string();
+        JsonNode jsonNode = new ObjectMapper().readTree(jsonData);
+        var nodeGetCountryOperators = jsonNode.get("data").get("getOperatorCountries");
+        JsonNode arrayCountries = nodeGetCountryOperators.get("countries");
+        var countriesNameFound = false;
+        for (int i=0; i< arrayCountries.size(); i++){
+            var country = arrayCountries.get(i);
+            var countryName = country.asText();
+            if (countryName.equals("XXF")){
+                countriesNameFound = true;
+                break;
+            }
+        }
+        Assert.assertTrue(countriesNameFound);
+    }
 }

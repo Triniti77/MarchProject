@@ -1,0 +1,21 @@
+mutation modifyUser($id: ID!, $firstName: String!, $lastName: String){
+    modifyUser(user:{
+        id: $id
+        firstName: $firstName
+        lastName: $lastName
+    })
+    {
+        user {
+            id
+            firstName
+            lastName
+            address
+            email
+            phone
+            role
+            lastLogin
+            language
+        }
+    }
+}
+

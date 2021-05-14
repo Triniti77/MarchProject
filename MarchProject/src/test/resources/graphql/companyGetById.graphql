@@ -1,0 +1,20 @@
+query companyGetById($id: ID) {
+    companyGetById(company: {
+        id: $id
+    })
+    {
+        company {
+            id
+            taxId
+            country
+            name
+            address
+            isCustomer
+            canBePrepaid
+            isGovernmental
+            status
+            deleted
+        }
+    }
+
+}

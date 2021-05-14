@@ -1,0 +1,14 @@
+query companyGetUsers($id: ID!){
+    companyGetUsers(company:{
+        id: $id
+    })
+    {
+        company {
+            id
+            users {
+                id
+            }
+        }
+    }
+}
+
